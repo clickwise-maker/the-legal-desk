@@ -59,7 +59,7 @@ export async function getAcroFormFields(pdfBytes: Buffer): Promise<string[]> {
   try {
     const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
     const form = doc.getForm();
-    const fields = form.getFields().map((f) => {
+    const fields = form.getFields().map((f: { getName: () => string }) => {
       try {
         return f.getName();
       } catch {

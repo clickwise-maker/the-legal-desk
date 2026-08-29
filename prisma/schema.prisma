@@ -109,6 +109,10 @@ model User {
   familyMembers      FamilyMember[]
   identityDocuments  IdentityDocument[]
   financialDetails   FinancialDetail[]
+  matters            Matter[]
+  legalDocuments     LegalDocument[]
+  copilotSessions    CopilotSession[]
+  drafts             Draft[]
 }
 
 // Repeatable education records (multiple qualifications).
@@ -382,4 +386,149 @@ model Transaction {
 
   @@index([walletId])
   @@index([userId])
+}
+
+// ── Worldwide Copilot — Matters / Documents / RAG ──
+
+enum Jurisdiction {
+  GLOBAL
+  IN
+  US
+  UK
+  EU
+  CA
+  AU
+  SG
+}
+
+enum LegalDocStatus {
+  UPLOADED
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+enum DraftStatus {
+  DRAFT
+  REVIEW
+  FINAL
+  EXPORTED
+}
+
+model Matter {
+  id          String       @id @default(cuid())
+  ownerId     String
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title       String
+  jurisdiction Jurisdiction @default(GLOBAL)
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  documents   LegalDocument[]
+  drafts      Draft[]
+  sessions    CopilotSession[]
+
+  @@index([ownerId])
+  @@index([jurisdiction])
+}
+
+model LegalDocument {
+  id          String        @id @default(cuid())
+  ownerId     String
+  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matterId    String?
+  matter      Matter?       @relation(fields: [matterId], references: [id])
+  title       String
+  fileName    String
+  fileUrl     String
+  fileType    String        @default("application/pdf")
+  jurisdiction Jurisdiction @default(GLOBAL)
+  status      LegalDocStatus @default(UPLOADED)
+  ocrText     String        @default("") @db.Text
+  pageCount   Int           @default(1)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  chunks      DocumentChunk[]
+  citations   Citation[]
+
+  @@index([ownerId])
+  @@index([matterId])
+  @@index([jurisdiction])
+  @@index([status])
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  document   LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  ownerId    String
+  chunkIndex Int
+  content    String   @db.Text
+  tokenCount Int      @default(0)
+  // BM25 + hybrid search: FTS via Postgres tsvector (generated at query time), rerank via LLM
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+  @@index([ownerId])
+  @@unique([documentId, chunkIndex])
+}
+
+model CopilotSession {
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matterId   String?
+  matter     Matter?  @relation(fields: [matterId], references: [id])
+  jurisdiction Jurisdiction @default(GLOBAL)
+  title      String   @default("New copilot session")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  messages   CopilotMessage[]
+
+  @@index([ownerId])
+  @@index([matterId])
+}
+
+model CopilotMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   CopilotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String   // user | assistant | system
+  content   String   @db.Text
+  citations Json?    // Citation[] snapshot
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model Citation {
+  id         String   @id @default(cuid())
+  documentId String
+  document   LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkId    String?
+  quote      String   @db.Text
+  page       Int?
+  section    String?
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+}
+
+model Draft {
+  id          String      @id @default(cuid())
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matterId    String?
+  matter      Matter?     @relation(fields: [matterId], references: [id])
+  title       String
+  content     String      @db.Text
+  jurisdiction Jurisdiction @default(GLOBAL)
+  status      DraftStatus @default(DRAFT)
+  citations   Json?       // Citation refs used
+  fileUrl     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([ownerId])
+  @@index([matterId])
 }

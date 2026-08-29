@@ -8,13 +8,16 @@ type Message = {
   role: "user" | "copilot";
   content: string;
   actions?: { label: string; href: string }[];
+  citations?: Array<{ documentTitle: string; quote: string }>;
 };
 
 type AgentMode = "research" | "compliance" | "summary" | "book" | "fill";
 
+const JURISDICTIONS = ["GLOBAL", "IN", "US", "UK", "EU", "CA", "AU", "SG"] as const;
+
 const AGENTS: Array<{ id: AgentMode; label: string; desc: string; prompt: string }> = [
-  { id: "research", label: "Research", desc: "Legal answers & rights", prompt: "Can you research my legal question in plain language?" },
-  { id: "compliance", label: "Compliance", desc: "India filings & rules", prompt: "What compliance do I need to be aware of for my situation?" },
+  { id: "research", label: "Research", desc: "Cited answers", prompt: "Research my legal question with sources from my documents." },
+  { id: "compliance", label: "Compliance", desc: "Worldwide rules", prompt: "What compliance do I need to be aware of for my situation?" },
   { id: "summary", label: "Summary", desc: "Your account at a glance", prompt: "Give me a summary of my dashboard, forms and bookings." },
   { id: "book", label: "Book Lawyer", desc: "Match with verified advocates", prompt: "Help me book a verified lawyer." },
   { id: "fill", label: "Fill Form", desc: "Auto-fill from your profile", prompt: "Help me fill a form from my profile." },
@@ -25,6 +28,7 @@ export function CopilotWorkspace({ authed }: { authed: boolean }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [typing, setTyping] = useState(false);
+  const [jurisdiction, setJurisdiction] = useState<string>("GLOBAL");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,12 +45,12 @@ export function CopilotWorkspace({ authed }: { authed: boolean }) {
       const res = await fetch("/api/copilot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, jurisdiction }),
       });
       const data = await res.json();
       setMessages((m) => [
         ...m,
-        { role: "copilot", content: data.reply ?? "Sorry, I hit a snag. Please try again.", actions: data.actions },
+        { role: "copilot", content: data.reply ?? "Sorry, I hit a snag. Please try again.", actions: data.actions, citations: data.citations },
       ]);
     } catch {
       setMessages((m) => [
@@ -73,10 +77,21 @@ export function CopilotWorkspace({ authed }: { authed: boolean }) {
             Your legal desk, in one conversation
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-legal-muted">
-            Pick an agent or just ask. The Copilot routes to the right specialist —
-            research, compliance, booking or form-filling — and hands you to a
-            human lawyer when needed.
+            Worldwide copilot — jurisdiction-aware, citation-backed. Upload documents, get cited answers, draft and export.
           </p>
+          <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-2">
+            <label className="text-xs font-semibold text-legal-muted">Jurisdiction</label>
+            <select value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)} className="rounded-full border border-primary-200 bg-white px-3 py-1.5 text-xs">
+              {JURISDICTIONS.map((j) => (
+                <option key={j} value={j}>
+                  {j === "GLOBAL" ? "Global" : j}
+                </option>
+              ))}
+            </select>
+            <Link href="/api/copilot/documents" className="text-xs text-primary-600 underline">
+              Documents
+            </Link>
+          </div>
           {!authed && (
             <p className="mx-auto mt-3 max-w-md rounded-lg bg-primary-50 px-4 py-2 text-sm text-primary-700">
               You&apos;re browsing as a guest.{" "}
@@ -135,6 +150,16 @@ export function CopilotWorkspace({ authed }: { authed: boolean }) {
                     <div className="whitespace-pre-line rounded-2xl rounded-tl-sm bg-white px-4 py-2.5 text-sm text-legal-700 shadow-sm">
                       {m.content}
                     </div>
+                    {m.citations && m.citations.length > 0 && (
+                      <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+                        <div className="font-semibold">Sources</div>
+                        {m.citations.map((c, idx) => (
+                          <div key={idx} className="mt-1 line-clamp-2">
+                            [{idx + 1}] {c.documentTitle}: “{c.quote.slice(0, 160)}”
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {m.actions && (
                       <div className="flex flex-wrap gap-2 pl-1">
                         {m.actions.map((a) => (
