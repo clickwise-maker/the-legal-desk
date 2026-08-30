@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   const userId = session.user.id;
   const role = session.user.role;
 
-  const [bookings, forms, wallet, lawyerProfile, upcoming, profileItems, profileUser, subscription, cityStateCountry, clients] = await Promise.all([
+  const [bookings, forms, wallet, lawyerProfile, upcoming, profileItems, profileUser, subscription, cityStateCountry, clients, legalProblems, lawyerStats] = await Promise.all([
     prisma.booking.findMany({
       where: { clientId: userId },
       include: {
@@ -58,6 +58,17 @@ export default async function DashboardPage() {
     getOrCreateSubscription(userId),
     prisma.user.findUnique({ where: { id: userId }, select: { city: true, state: true, country: true } }),
     prisma.client.findMany({ where: { ownerId: userId }, select: { id: true } }),
+    prisma.legalProblem.findMany({ where: { ownerId: userId }, orderBy: { updatedAt: "desc" }, take: 5, include: { _count: { select: { responses: true } } } }),
+    role === "LAWYER"
+      ? Promise.all([
+          prisma.legalProblem.count({ where: { status: "OPEN" } }),
+          prisma.problemHold.count({ where: { lawyerId: userId, status: "ACTIVE", expiresAt: { gt: new Date() } } }),
+          prisma.lawyerResponse.count({ where: { lawyerId: userId } }),
+          prisma.booking.findMany({ where: { lawyerId: userId, status: "CONFIRMED" }, select: { price: true, commissionAmount: true, lawyerEarning: true } }),
+          prisma.wallet.findUnique({ where: { userId }, select: { balance: true } }),
+          prisma.payoutAccount.findUnique({ where: { userId } }),
+        ])
+      : Promise.resolve(null),
   ]);
 
   const profileFields = [
@@ -217,6 +228,70 @@ export default async function DashboardPage() {
               </ul>
             )}
           </section>
+
+          {/* My Legal Problems */}
+          <section id="problems">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-xl font-bold text-primary-800">My Legal Problems</h2>
+              <Link href="/problems" className="text-sm font-semibold text-gold-500 hover:text-gold-400">View all</Link>
+            </div>
+            {legalProblems.length === 0 ? (
+              <p className="mt-4 text-sm text-legal-muted">No problems posted yet. <Link href="/problems" className="text-gold-500 hover:underline">Post one</Link></p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {legalProblems.map((p) => (
+                  <li key={p.id} className="card p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-primary-800">{p.title}</div>
+                      <StatusBadge status={p.status} />
+                    </div>
+                    <div className="mt-1 text-sm text-legal-muted">{p.category} · {p.location ?? "—"} · {p._count.responses} responses</div>
+                    <div className="mt-2 flex gap-2">
+                      <Link href={`/problems/${p.id}`} className="btn-outline text-xs">View</Link>
+                      {p.status === "OPEN" && p._count.responses === 0 && <span className="text-xs text-legal-muted">Posted</span>}
+                      {p._count.responses > 0 && <span className="text-xs text-emerald-600">Lawyers Interested</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Lawyer Overview (only for lawyers) */}
+          {role === "LAWYER" && lawyerStats && (
+            <section id="lawyer-overview">
+              <h2 className="font-heading text-xl font-bold text-primary-800">Lawyer Overview</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="card p-4">
+                  <div className="text-sm text-legal-muted">New eligible leads</div>
+                  <div className="font-heading text-2xl font-bold text-primary-800">{lawyerStats[0]}</div>
+                  <Link href="/lawyer/requests" className="text-xs text-gold-500 hover:underline">View leads</Link>
+                </div>
+                <div className="card p-4">
+                  <div className="text-sm text-legal-muted">Lead quota</div>
+                  <div className="font-heading text-lg font-bold text-primary-800">{subscription.clientsUsed}/{subscription.clientLimit} used · {remaining} remaining</div>
+                </div>
+                <div className="card p-4">
+                  <div className="text-sm text-legal-muted">Active holds</div>
+                  <div className="font-heading text-xl font-bold text-primary-800">{(lawyerStats[1] as number)}</div>
+                  <div className="text-xs text-legal-muted">3-day holds</div>
+                </div>
+                <div className="card p-4">
+                  <div className="text-sm text-legal-muted">Total responses</div>
+                  <div className="font-heading text-xl font-bold text-primary-800">{lawyerStats[2] as number}</div>
+                </div>
+                <div className="card p-4">
+                  <div className="text-sm text-legal-muted">Earnings (gross)</div>
+                  <div className="font-heading text-xl font-bold text-primary-800">{formatMoney((lawyerStats[3] as { price: number }[]).reduce((s, b) => s + (b as unknown as { price: number }).price, 0), walletCurrency)}</div>
+                </div>
+                <div className="card p-4">
+                  <div className="text-sm text-legal-muted">Payout account</div>
+                  <div className="text-sm font-semibold text-primary-800">{(lawyerStats[5] as { kycStatus: string } | null)?.kycStatus ?? "NOT_STARTED"}</div>
+                  <Link href="/profile" className="text-xs text-gold-500 hover:underline">Setup payout</Link>
+                </div>
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Side column */}

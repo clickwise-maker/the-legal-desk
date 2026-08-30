@@ -124,6 +124,12 @@ model User {
   legalConsents     LegalConsent[]
   legalProblems     LegalProblem[]
   lawyerResponses   LawyerResponse[]
+  problemHolds      ProblemHold[]
+  payoutAccount     PayoutAccount?
+  complaintsFiled   Complaint[]        @relation("Reporter")
+  complaintsAgainst Complaint[]        @relation("LawyerComplaint")
+  complaintAppeals  ComplaintAppeal[]
+  auditLogs         AuditLog[]
 }
 
 // Repeatable education records (multiple qualifications).
@@ -249,6 +255,7 @@ model LawyerProfile {
   availability            Availability[]
   LawyerSpecialization    LawyerSpecialization[]
   lawyerResponses         LawyerResponse[]
+  problemHolds            ProblemHold[]
 }
 
 // Cal.com-style availability: a lawyer defines weekly working
@@ -307,6 +314,7 @@ model Booking {
   formId           String?         @unique
   form             Form?           @relation(fields: [formId], references: [id])
   rating           Rating?
+  complaints       Complaint[]
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -405,6 +413,11 @@ model Transaction {
 enum Plan {
   FREE
   PRO
+  SCHEDULE_EARLY
+  SCHEDULE_VIP
+  VIP_ALL_IN_ONE
+  LAWYER_STATE_PRO
+  LAWYER_INTL_UNLIMITED
 }
 
 enum SubscriptionStatus {
@@ -486,6 +499,7 @@ model LegalProblem {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   responses   LawyerResponse[]
+  holds       ProblemHold[]
 
   @@index([ownerId])
   @@index([status])
@@ -508,6 +522,95 @@ model LawyerResponse {
   @@index([problemId])
   @@index([lawyerId])
   @@index([lawyerProfileId])
+}
+
+model ProblemHold {
+  id              String        @id @default(cuid())
+  problemId       String
+  problem         LegalProblem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  lawyerId        String
+  lawyer          User          @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  lawyerProfileId String
+  lawyerProfile   LawyerProfile @relation(fields: [lawyerProfileId], references: [id], onDelete: Cascade)
+  status          String        @default("ACTIVE") // ACTIVE, EXPIRED, CONNECTED
+  createdAt       DateTime      @default(now())
+  expiresAt       DateTime
+  connectedAt     DateTime?
+
+  @@unique([problemId, lawyerId])
+  @@index([problemId])
+  @@index([lawyerId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model PayoutAccount {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycStatus             String   @default("NOT_STARTED") // NOT_STARTED, PENDING, VERIFIED, REJECTED
+  providerStatus        String   @default("NOT_STARTED")
+  availableBalance      Float    @default(0)
+  pendingBalance        Float    @default(0)
+  totalEarnings         Float    @default(0)
+  razorpayContactId     String?
+  razorpayFundAccountId String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Complaint {
+  id          String            @id @default(cuid())
+  reporterId  String
+  reporter    User              @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  lawyerId    String
+  lawyer      User              @relation("LawyerComplaint", fields: [lawyerId], references: [id], onDelete: Cascade)
+  bookingId   String?
+  booking     Booking?          @relation(fields: [bookingId], references: [id])
+  matterId    String?
+  matter      Matter?           @relation(fields: [matterId], references: [id])
+  category    String
+  description String            @db.Text
+  evidenceUrl String?
+  status      String            @default("PENDING") // PENDING, VALID, REJECTED, NEEDS_INFO, REFUND_REQUIRED
+  decision    String?
+  decidedBy   String?
+  decidedAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  appeals     ComplaintAppeal[]
+
+  @@index([reporterId])
+  @@index([lawyerId])
+  @@index([status])
+}
+
+model ComplaintAppeal {
+  id          String    @id @default(cuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  lawyerId    String
+  lawyer      User      @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  message     String    @db.Text
+  createdAt   DateTime  @default(now())
+
+  @@index([complaintId])
+  @@index([lawyerId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  targetId   String?
+  targetType String?
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
 }
 
 // ── Worldwide Copilot — Matters / Documents / RAG ──
@@ -550,6 +653,7 @@ model Matter {
   drafts       Draft[]
   sessions     CopilotSession[]
   clients      Client[]
+  complaints   Complaint[]
 
   @@index([ownerId])
   @@index([jurisdiction])

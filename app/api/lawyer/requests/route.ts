@@ -16,12 +16,15 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category")?.trim();
   const location = searchParams.get("location")?.trim();
 
+  // Expire stale holds server-side (3-day window)
+  await prisma.problemHold.updateMany({ where: { status: "ACTIVE", expiresAt: { lt: new Date() } }, data: { status: "EXPIRED" } });
+
   // Only OPEN problems are eligible
   const where: Record<string, unknown> = { status: "OPEN" };
   if (category) (where as Record<string, unknown>).category = { contains: category, mode: "insensitive" };
   if (location) (where as Record<string, unknown>).location = { contains: location, mode: "insensitive" };
 
-  const problems = await prisma.legalProblem.findMany({
+  let problems = await prisma.legalProblem.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -37,6 +40,14 @@ export async function GET(req: NextRequest) {
       _count: { select: { responses: true } },
     },
   });
+
+  // Exclude problems that are on ACTIVE hold by another lawyer (3-day hold)
+  const activeHolds = await prisma.problemHold.findMany({
+    where: { problemId: { in: problems.map((p) => p.id) }, status: "ACTIVE", expiresAt: { gt: new Date() } },
+    select: { problemId: true, lawyerId: true },
+  });
+  const heldByOther = new Set(activeHolds.filter((h) => h.lawyerId !== session.user.id).map((h) => h.problemId));
+  problems = problems.filter((p) => !heldByOther.has(p.id));
 
   // Privacy: expose only title/description/category/location + owner's first name, never email/phone
   const safe = problems.map((p) => ({

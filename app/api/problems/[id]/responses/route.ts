@@ -93,7 +93,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  // Atomic increment + create response
+  // Check for active hold by another lawyer (3-day hold, server-side expiry)
+  const activeHold = await prisma.problemHold.findFirst({
+    where: { problemId: params.id, status: "ACTIVE", expiresAt: { gt: new Date() } },
+  });
+  if (activeHold && activeHold.lawyerId !== session.user.id) {
+    return NextResponse.json({ error: "This problem is currently on hold by another lawyer. Try again later." }, { status: 409 });
+  }
+
+  // Atomic increment + create response + 3-day hold (ACTIVE → EXPIRED after 3 days, then AVAILABLE again)
   let response;
   try {
     await prisma.$transaction(async (tx) => {
@@ -108,6 +116,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           lawyerId: session.user.id,
           lawyerProfileId: profile.id,
           message: sanitizeText(parsed.data.message),
+        },
+      });
+      // Create 3-day auditable hold
+      await tx.problemHold.create({
+        data: {
+          problemId: params.id,
+          lawyerId: session.user.id,
+          lawyerProfileId: profile.id,
+          status: "ACTIVE",
+          expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
         },
       });
     });

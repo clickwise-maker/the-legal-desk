@@ -5,7 +5,7 @@
 
 import type { User } from "@prisma/client";
 
-export type Plan = "FREE" | "PRO";
+export type Plan = "FREE" | "PRO" | "SCHEDULE_EARLY" | "SCHEDULE_VIP" | "VIP_ALL_IN_ONE" | "LAWYER_STATE_PRO" | "LAWYER_INTL_UNLIMITED";
 export type BillingPeriod = "MONTHLY" | "YEARLY";
 export type PricingRegion = "CITY" | "STATE" | "INDIA" | "INTERNATIONAL" | "DEFAULT";
 export type Currency = "INR" | "USD";
@@ -15,9 +15,32 @@ export const AUTO_FORM_PRICING = {
   INTERNATIONAL: { amount: 1, currency: "USD" as Currency },
 } as const;
 
+// Keep legacy PRO for backward compat, but new lawyer lead plans are explicit
 export const PLANS = {
-  FREE: { priceMonthly: 0, priceYearly: 0, clientLimit: 10, label: "Free" },
-  PRO: { priceMonthly: 499, priceYearly: 4990, clientLimit: 100, label: "Pro" },
+  FREE: { priceMonthly: 0, priceYearly: 0, clientLimit: 10, label: "Free (10 clients)" },
+  PRO: { priceMonthly: 499, priceYearly: 4990, clientLimit: 100, label: "Pro (100 clients)" },
+  SCHEDULE_EARLY: { priceMonthly: 299, priceYearly: 2990, clientLimit: 0, label: "ScheduleAI Early" },
+  SCHEDULE_VIP: { priceMonthly: 999, priceYearly: 9990, clientLimit: 0, label: "ScheduleAI VIP" },
+  VIP_ALL_IN_ONE: { priceMonthly: 1999, priceYearly: 19900, clientLimit: 0, label: "VIP All-in-One" },
+  LAWYER_STATE_PRO: { priceMonthly: 2999, priceYearly: 29990, clientLimit: 100, label: "State Pro (100 leads)" },
+  LAWYER_INTL_UNLIMITED: { priceMonthly: 10000, priceYearly: 100000, clientLimit: 999999, label: "International Unlimited" },
+} as const;
+
+// Separate product pricing for location-aware ScheduleAI/VIP (India INR vs International USD)
+export const SCHEDULE_AI_PRICING = {
+  EARLY: { INDIA: { amount: 299, currency: "INR" as Currency }, INTERNATIONAL: { amount: 5, currency: "USD" as Currency } },
+  VIP: { INDIA: { amount: 999, currency: "INR" as Currency }, INTERNATIONAL: { amount: 19, currency: "USD" as Currency } },
+} as const;
+
+export const VIP_PRICING = {
+  INDIA: { amount: 1999, currency: "INR" as Currency },
+  INTERNATIONAL: { amount: 39, currency: "USD" as Currency },
+} as const;
+
+export const LAWYER_LEAD_PRICING = {
+  FREE: { INDIA: { amount: 0, currency: "INR" as Currency }, INTERNATIONAL: { amount: 0, currency: "INR" as Currency }, limit: 10 },
+  STATE_PRO: { INDIA: { amount: 2999, currency: "INR" as Currency }, INTERNATIONAL: { amount: 2999, currency: "INR" as Currency }, limit: 100 },
+  INTL_UNLIMITED: { INDIA: { amount: 10000, currency: "INR" as Currency }, INTERNATIONAL: { amount: 10000, currency: "INR" as Currency }, limit: 999999 },
 } as const;
 
 // Optional city/state overrides — add entries without touching UI.
@@ -67,8 +90,37 @@ export function getPlanPrice(opts: {
   user: Pick<User, "city" | "state" | "country">;
   plan: Plan;
   period: BillingPeriod;
-}): { amountInr: number; region: PricingRegion; currency: string } {
+}): { amountInr: number; amount: number; region: PricingRegion; currency: Currency } {
   const region = detectPricingRegion(opts.user);
+  const isIndia = isIndiaUser(opts.user);
+
+  // Handle product-specific pricing that varies by currency
+  if (opts.plan === "SCHEDULE_EARLY") {
+    const p = isIndia ? SCHEDULE_AI_PRICING.EARLY.INDIA : SCHEDULE_AI_PRICING.EARLY.INTERNATIONAL;
+    const amount = opts.period === "YEARLY" ? p.amount * 10 : p.amount;
+    return { amountInr: amount, amount, region, currency: p.currency };
+  }
+  if (opts.plan === "SCHEDULE_VIP") {
+    const p = isIndia ? SCHEDULE_AI_PRICING.VIP.INDIA : SCHEDULE_AI_PRICING.VIP.INTERNATIONAL;
+    const amount = opts.period === "YEARLY" ? p.amount * 10 : p.amount;
+    return { amountInr: amount, amount, region, currency: p.currency };
+  }
+  if (opts.plan === "VIP_ALL_IN_ONE") {
+    const p = isIndia ? VIP_PRICING.INDIA : VIP_PRICING.INTERNATIONAL;
+    const amount = opts.period === "YEARLY" ? p.amount * 10 : p.amount;
+    return { amountInr: amount, amount, region, currency: p.currency };
+  }
+  if (opts.plan === "LAWYER_STATE_PRO") {
+    const p = LAWYER_LEAD_PRICING.STATE_PRO.INDIA;
+    const amount = opts.period === "YEARLY" ? p.amount * 10 : p.amount;
+    return { amountInr: amount, amount, region, currency: p.currency };
+  }
+  if (opts.plan === "LAWYER_INTL_UNLIMITED") {
+    const p = LAWYER_LEAD_PRICING.INTL_UNLIMITED.INDIA;
+    const amount = opts.period === "YEARLY" ? p.amount * 10 : p.amount;
+    return { amountInr: amount, amount, region, currency: p.currency };
+  }
+
   const base = opts.period === "YEARLY" ? PLANS[opts.plan].priceYearly : PLANS[opts.plan].priceMonthly;
   let amountInr: number = base;
 
@@ -84,7 +136,7 @@ export function getPlanPrice(opts: {
     amountInr = COUNTRY_OVERRIDES[country][opts.plan]!;
   }
 
-  return { amountInr, region, currency: "INR" };
+  return { amountInr, amount: amountInr, region, currency: "INR" };
 }
 
 export function getClientLimit(plan: Plan): number {
