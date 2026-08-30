@@ -122,6 +122,8 @@ model User {
   subscription      Subscription?
   clients           Client[]
   legalConsents     LegalConsent[]
+  legalProblems     LegalProblem[]
+  lawyerResponses   LawyerResponse[]
 }
 
 // Repeatable education records (multiple qualifications).
@@ -246,6 +248,7 @@ model LawyerProfile {
   ratings                 Rating[]
   availability            Availability[]
   LawyerSpecialization    LawyerSpecialization[]
+  lawyerResponses         LawyerResponse[]
 }
 
 // Cal.com-style availability: a lawyer defines weekly working
@@ -464,6 +467,47 @@ model LegalConsent {
 
   @@unique([userId, version])
   @@index([userId])
+}
+
+enum LegalProblemStatus {
+  OPEN
+  CLOSED
+}
+
+model LegalProblem {
+  id          String             @id @default(cuid())
+  ownerId     String
+  owner       User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title       String
+  description String             @db.Text
+  category    String
+  location    String?
+  status      LegalProblemStatus @default(OPEN)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  responses   LawyerResponse[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([category])
+  @@index([location])
+}
+
+model LawyerResponse {
+  id              String        @id @default(cuid())
+  problemId       String
+  problem         LegalProblem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  lawyerId        String
+  lawyer          User          @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  lawyerProfileId String
+  lawyerProfile   LawyerProfile @relation(fields: [lawyerProfileId], references: [id], onDelete: Cascade)
+  message         String        @db.Text
+  createdAt       DateTime      @default(now())
+
+  @@unique([problemId, lawyerId])
+  @@index([problemId])
+  @@index([lawyerId])
+  @@index([lawyerProfileId])
 }
 
 // ── Worldwide Copilot — Matters / Documents / RAG ──
