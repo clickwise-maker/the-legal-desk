@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 
 const schema = z.object({
   name: z.string().min(2).max(80),
@@ -13,6 +14,13 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, {
+    keyPrefix: "auth:register",
+    max: rateLimitDefaults.login.max,
+    windowSec: rateLimitDefaults.login.windowSec,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   let body: unknown;
   try {
     body = await req.json();

@@ -6,6 +6,7 @@ import { uploadFile } from "@/lib/storage/blob";
 import { ingestDocument } from "@/lib/copilot/ingest";
 import { parseJurisdiction } from "@/lib/copilot/jurisdiction";
 import { validateUpload } from "@/lib/security/fileValidation";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 
 const ACCEPTED = ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/jpg"];
 
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, { keyPrefix: "copilot:documents", max: rateLimitDefaults.copilot.max, windowSec: rateLimitDefaults.copilot.windowSec });
+  if (!rl.allowed) return rateLimitResponse(rl);
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

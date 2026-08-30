@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createOtp } from "@/lib/otp";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 
 const schema = z.object({ email: z.string().email() });
 
@@ -17,6 +18,21 @@ export async function POST(req: NextRequest) {
   }
 
   const email = parsed.data.email.toLowerCase().trim();
+
+  const rlShort = await checkRateLimit(req, {
+    keyPrefix: "otp:resend",
+    max: rateLimitDefaults.otpRequest.max,
+    windowSec: rateLimitDefaults.otpRequest.windowSec,
+    identifier: `email:${email}`,
+  });
+  if (!rlShort.allowed) return rateLimitResponse(rlShort);
+  const rlDaily = await checkRateLimit(req, {
+    keyPrefix: "otp:resend:daily",
+    max: rateLimitDefaults.otpDaily.max,
+    windowSec: rateLimitDefaults.otpDaily.windowSec,
+    identifier: `email:${email}`,
+  });
+  if (!rlDaily.allowed) return rateLimitResponse(rlDaily);
   const existing = await prisma.user.findUnique({ where: { email } });
   if (!existing) {
     return NextResponse.json(

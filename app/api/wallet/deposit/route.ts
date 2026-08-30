@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -10,6 +11,8 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, { keyPrefix: "payment:deposit", max: rateLimitDefaults.payment.max, windowSec: rateLimitDefaults.payment.windowSec });
+  if (!rl.allowed) return rateLimitResponse(rl);
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

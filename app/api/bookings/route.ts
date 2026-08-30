@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -49,6 +50,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, { keyPrefix: "payment:booking", max: rateLimitDefaults.payment.max, windowSec: rateLimitDefaults.payment.windowSec });
+  if (!rl.allowed) return rateLimitResponse(rl);
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

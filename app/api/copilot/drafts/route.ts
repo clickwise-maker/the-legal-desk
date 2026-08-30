@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateDraft } from "@/lib/copilot/draft";
 import { hybridSearch } from "@/lib/copilot/search";
 import { parseJurisdiction } from "@/lib/copilot/jurisdiction";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, { keyPrefix: "copilot:drafts", max: rateLimitDefaults.copilot.max, windowSec: rateLimitDefaults.copilot.windowSec });
+  if (!rl.allowed) return rateLimitResponse(rl);
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));

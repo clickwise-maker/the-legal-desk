@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage/blob";
 import { validateUpload } from "@/lib/security/fileValidation";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 
 const ACCEPTED_TYPES = [
   "application/pdf",
@@ -31,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, { keyPrefix: "formPilot:create", max: rateLimitDefaults.formPilot.max, windowSec: rateLimitDefaults.formPilot.windowSec });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

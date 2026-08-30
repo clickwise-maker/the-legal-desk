@@ -58,12 +58,18 @@ export async function verifyOtp(email: string, code: string): Promise<OtpCheckRe
     return { ok: false, error: "This OTP has expired. Request a new one." };
   }
   if (record.attempts >= OTP_MAX_ATTEMPTS) {
+    // Invalidate after max failed attempts — brute-force protection
+    await prisma.otp.update({ where: { id: record.id }, data: { usedAt: new Date() } });
     return { ok: false, error: "Too many incorrect attempts. Please request a new OTP." };
   }
 
   const matches = await compare(code.trim(), record.codeHash);
   if (!matches) {
-    await prisma.otp.update({ where: { id: record.id }, data: { attempts: { increment: 1 } } });
+    const updated = await prisma.otp.update({ where: { id: record.id }, data: { attempts: { increment: 1 } }, select: { attempts: true } });
+    // Invalidate immediately when reaching limit, so next verify forces new OTP
+    if (updated.attempts >= OTP_MAX_ATTEMPTS) {
+      await prisma.otp.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+    }
     return { ok: false, error: "Incorrect OTP. Please try again." };
   }
 

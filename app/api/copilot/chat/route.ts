@@ -7,6 +7,7 @@ import { detectCountry, getCurrency, formatRate } from "@/lib/currency";
 import { PLATFORM_COMMISSION_PERCENT, calcCommission, FORM_FILL_PRICE } from "@/lib/constants";
 import { parseJurisdiction, jurisdictionPromptHint } from "@/lib/copilot/jurisdiction";
 import { hybridSearch } from "@/lib/copilot/search";
+import { checkRateLimit, rateLimitResponse, rateLimitDefaults } from "@/lib/rateLimiter";
 
 type Intent =
   | "book_lawyer"
@@ -60,6 +61,13 @@ function extractNumber(text: string): number | null {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await checkRateLimit(req, {
+    keyPrefix: "copilot:chat",
+    max: rateLimitDefaults.copilot.max,
+    windowSec: rateLimitDefaults.copilot.windowSec,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   const session = await getServerSession(authOptions);
   const currency = getCurrency(detectCountry(req));
 
