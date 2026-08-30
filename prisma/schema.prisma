@@ -44,6 +44,7 @@ enum TransactionType {
   COMMISSION
   LAWYER_PAYOUT
   WITHDRAWAL
+  SUBSCRIPTION_PAYMENT
 }
 
 enum TransactionStatus {
@@ -58,95 +59,97 @@ enum PaymentProvider {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  phone        String?
-  avatarUrl    String?
-  role         UserRole @default(CLIENT)
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  name                  String
+  passwordHash          String
+  phone                 String?
+  avatarUrl             String?
+  role                  UserRole  @default(CLIENT)
   // Scheduling availability reused from the Cal.com-style core
-  timezone     String   @default("Asia/Kolkata")
+  timezone              String    @default("Asia/Kolkata")
   // Rich profile — the "One Profile" knowledge base core
-  address      String?
-  city         String?
-  state        String?
-  pincode      String?
-  dateOfBirth  DateTime?
-  occupation   String?
-  companyName  String?
-  profilePhotoUrl String?
+  address               String?
+  city                  String?
+  state                 String?
+  pincode               String?
+  dateOfBirth           DateTime?
+  occupation            String?
+  companyName           String?
+  profilePhotoUrl       String?
   // Expanded structured sections (Division: Universal Form Filling)
-  firstName        String?
-  middleName       String?
-  lastName         String?
-  gender           String?
-  nationality      String?
-  alternatePhone   String?
-  addressLine1     String?
-  addressLine2     String?
-  village          String?
-  district         String?
-  country          String?
-  permanentAddress String?
+  firstName             String?
+  middleName            String?
+  lastName              String?
+  gender                String?
+  nationality           String?
+  alternatePhone        String?
+  addressLine1          String?
+  addressLine2          String?
+  village               String?
+  district              String?
+  country               String?
+  permanentAddress      String?
   correspondenceAddress String?
-  designation      String?
-  workAddress      String?
-  previousEmployer String?
-  experienceYears  Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  designation           String?
+  workAddress           String?
+  previousEmployer      String?
+  experienceYears       Int?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  lawyerProfile      LawyerProfile?
-  wallet             Wallet?
-  bookings           Booking[]      @relation("ClientBookings")
-  lawyerBookings     Booking[]      @relation("LawyerBookings")
-  forms              Form[]
-  ratings            Rating[]
-  transactions       Transaction[]
-  profileItems       ProfileItem[]
-  educationRecords   EducationRecord[]
-  familyMembers      FamilyMember[]
-  identityDocuments  IdentityDocument[]
-  financialDetails   FinancialDetail[]
-  matters            Matter[]
-  legalDocuments     LegalDocument[]
-  copilotSessions    CopilotSession[]
-  drafts             Draft[]
+  lawyerProfile     LawyerProfile?
+  wallet            Wallet?
+  bookings          Booking[]          @relation("ClientBookings")
+  lawyerBookings    Booking[]          @relation("LawyerBookings")
+  forms             Form[]
+  ratings           Rating[]
+  transactions      Transaction[]
+  profileItems      ProfileItem[]
+  educationRecords  EducationRecord[]
+  familyMembers     FamilyMember[]
+  identityDocuments IdentityDocument[]
+  financialDetails  FinancialDetail[]
+  matters           Matter[]
+  legalDocuments    LegalDocument[]
+  copilotSessions   CopilotSession[]
+  drafts            Draft[]
+  subscription      Subscription?
+  clients           Client[]
 }
 
 // Repeatable education records (multiple qualifications).
 model EducationRecord {
-  id                 String   @id @default(cuid())
-  userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  qualification      String?
-  institution        String?
-  boardUniversity    String?
-  passingYear        Int?
-  percentage         Float?
-  cgpa               Float?
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qualification        String?
+  institution          String?
+  boardUniversity      String?
+  passingYear          Int?
+  percentage           Float?
+  cgpa                 Float?
   certificateReference String?
-  order              Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  order                Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([userId])
 }
 
 // Repeatable family members (dependants / relatives).
 model FamilyMember {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   relationship    String?
   name            String?
   dateOfBirth     DateTime?
   occupation      String?
-  dependentStatus Boolean  @default(false)
-  order           Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  dependentStatus Boolean   @default(false)
+  order           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([userId])
 }
@@ -154,17 +157,17 @@ model FamilyMember {
 // Identity documents. documentNumber is sensitive: the API masks it
 // outside explicit owner-only reads and it is never logged.
 model IdentityDocument {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documentType    String?
-  documentNumber  String?
-  issueDate       DateTime?
-  expiryDate      DateTime?
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType     String?
+  documentNumber   String?
+  issueDate        DateTime?
+  expiryDate       DateTime?
   issuingAuthority String?
-  fileUrl         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  fileUrl          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([userId])
 }
@@ -173,16 +176,16 @@ model IdentityDocument {
 // full values; the profile API masks them everywhere else and nothing
 // financial is ever written to logs.
 model FinancialDetail {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category   String   @default("GENERAL") // INCOME | BANK | TAX | INVESTMENT | GENERAL
-  key        String
-  label      String
-  value      String
-  isSensitive Boolean @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String   @default("GENERAL") // INCOME | BANK | TAX | INVESTMENT | GENERAL
+  key         String
+  label       String
+  value       String
+  isSensitive Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([userId, key])
   @@index([userId])
@@ -197,8 +200,8 @@ model ProfileItem {
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category     String   @default("PERSONAL") // PERSONAL | CONTACT | ADDRESS | EMPLOYMENT | EDUCATION | FAMILY | FINANCIAL | IDENTIFICATION
-  key          String   // normalized key, e.g. "full_name"
-  label        String   // human label, e.g. "Full name"
+  key          String // normalized key, e.g. "full_name"
+  label        String // human label, e.g. "Full name"
   value        String
   sourceFormId String?
   approved     Boolean  @default(true)
@@ -210,54 +213,54 @@ model ProfileItem {
 }
 
 model LawyerProfile {
-  id                   String                 @id @default(cuid())
-  userId               String                 @unique
-  user                 User                   @relation(fields: [userId], references: [id])
-  barCouncilId         String                 @unique
-  experienceYears      Int                    @default(5)
-  bio                  String                 @default("")
-  hourlyRate           Float                  @default(0)
-  commissionRate       Float                  @default(12)
-  isVerified           Boolean                @default(false)
-  isAvailable          Boolean                @default(true)
-  city                 String?
+  id                      String                 @id @default(cuid())
+  userId                  String                 @unique
+  user                    User                   @relation(fields: [userId], references: [id])
+  barCouncilId            String                 @unique
+  experienceYears         Int                    @default(5)
+  bio                     String                 @default("")
+  hourlyRate              Float                  @default(0)
+  commissionRate          Float                  @default(12)
+  isVerified              Boolean                @default(false)
+  isAvailable             Boolean                @default(true)
+  city                    String?
   // Lawyer onboarding / registration fields
-  practiceEmail        String?
-  chamberAddress       String?
-  enrolmentYear        Int?
-  aibeCopNumber        String?
-  courtsOfPractice     Json? // e.g. ["Supreme Court of India", "High Court"]
+  practiceEmail           String?
+  chamberAddress          String?
+  enrolmentYear           Int?
+  aibeCopNumber           String?
+  courtsOfPractice        Json? // e.g. ["Supreme Court of India", "High Court"]
   enrolmentCertificateUrl String?
-  onboardingStatus     String                 @default("NOT_STARTED") // NOT_STARTED | DRAFT | SUBMITTED | VERIFIED
-  credentialsVerifiedAt DateTime?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  specializations      Specialization[]
-  bookings             Booking[]
-  ratings              Rating[]
-  availability         Availability[]
-  LawyerSpecialization LawyerSpecialization[]
+  onboardingStatus        String                 @default("NOT_STARTED") // NOT_STARTED | DRAFT | SUBMITTED | VERIFIED
+  credentialsVerifiedAt   DateTime?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  specializations         Specialization[]
+  bookings                Booking[]
+  ratings                 Rating[]
+  availability            Availability[]
+  LawyerSpecialization    LawyerSpecialization[]
 }
 
 // Cal.com-style availability: a lawyer defines weekly working
 // windows, and the slot engine expands them into concrete
 // bookable start times on a chosen date.
 model Availability {
-  id               String         @id @default(cuid())
-  lawyerProfileId  String
-  lawyerProfile    LawyerProfile  @relation(fields: [lawyerProfileId], references: [id], onDelete: Cascade)
-  dayOfWeek        Int            // 0 = Sunday .. 6 = Saturday
-  startMinute      Int            // minutes from 00:00
-  endMinute        Int
-  createdAt        DateTime       @default(now())
+  id              String        @id @default(cuid())
+  lawyerProfileId String
+  lawyerProfile   LawyerProfile @relation(fields: [lawyerProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek       Int // 0 = Sunday .. 6 = Saturday
+  startMinute     Int // minutes from 00:00
+  endMinute       Int
+  createdAt       DateTime      @default(now())
 
   @@index([lawyerProfileId, dayOfWeek])
 }
 
 model Specialization {
-  id              String         @id @default(cuid())
-  name            String         @unique
-  description     String?
+  id                   String                 @id @default(cuid())
+  name                 String                 @unique
+  description          String?
   lawyers              LawyerProfile[]
   LawyerSpecialization LawyerSpecialization[]
 }
@@ -360,13 +363,13 @@ model Wallet {
 // Email OTP login tokens. Codes are stored hashed, expire quickly, and
 // are single-use. Used by the "Resend OTP" flow and OTP sign-in mode.
 model Otp {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   email     String
   codeHash  String
   expiresAt DateTime
   usedAt    DateTime?
-  attempts  Int      @default(0)
-  createdAt DateTime @default(now())
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
 
   @@index([email])
 }
@@ -386,6 +389,60 @@ model Transaction {
 
   @@index([walletId])
   @@index([userId])
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  INACTIVE
+}
+
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  userId                 String             @unique
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                   Plan               @default(FREE)
+  status                 SubscriptionStatus @default(ACTIVE)
+  billingPeriod          BillingPeriod      @default(MONTHLY)
+  clientLimit            Int                @default(10)
+  clientsUsed            Int                @default(0)
+  periodStart            DateTime           @default(now())
+  periodEnd              DateTime
+  razorpayOrderId        String?
+  razorpayPaymentId      String?
+  razorpaySubscriptionId String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([plan])
+  @@index([status])
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  matterId  String?
+  matter    Matter?  @relation(fields: [matterId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([matterId])
 }
 
 // ── Worldwide Copilot — Matters / Documents / RAG ──
@@ -416,40 +473,41 @@ enum DraftStatus {
 }
 
 model Matter {
-  id          String       @id @default(cuid())
-  ownerId     String
-  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  title       String
-  jurisdiction Jurisdiction @default(GLOBAL)
-  description String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  documents   LegalDocument[]
-  drafts      Draft[]
-  sessions    CopilotSession[]
+  id           String           @id @default(cuid())
+  ownerId      String
+  owner        User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title        String
+  jurisdiction Jurisdiction     @default(GLOBAL)
+  description  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  documents    LegalDocument[]
+  drafts       Draft[]
+  sessions     CopilotSession[]
+  clients      Client[]
 
   @@index([ownerId])
   @@index([jurisdiction])
 }
 
 model LegalDocument {
-  id          String        @id @default(cuid())
-  ownerId     String
-  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  matterId    String?
-  matter      Matter?       @relation(fields: [matterId], references: [id])
-  title       String
-  fileName    String
-  fileUrl     String
-  fileType    String        @default("application/pdf")
-  jurisdiction Jurisdiction @default(GLOBAL)
-  status      LegalDocStatus @default(UPLOADED)
-  ocrText     String        @default("") @db.Text
-  pageCount   Int           @default(1)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  chunks      DocumentChunk[]
-  citations   Citation[]
+  id           String          @id @default(cuid())
+  ownerId      String
+  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matterId     String?
+  matter       Matter?         @relation(fields: [matterId], references: [id])
+  title        String
+  fileName     String
+  fileUrl      String
+  fileType     String          @default("application/pdf")
+  jurisdiction Jurisdiction    @default(GLOBAL)
+  status       LegalDocStatus  @default(UPLOADED)
+  ocrText      String          @default("") @db.Text
+  pageCount    Int             @default(1)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  chunks       DocumentChunk[]
+  citations    Citation[]
 
   @@index([ownerId])
   @@index([matterId])
@@ -458,76 +516,76 @@ model LegalDocument {
 }
 
 model DocumentChunk {
-  id         String   @id @default(cuid())
+  id         String        @id @default(cuid())
   documentId String
   document   LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   ownerId    String
   chunkIndex Int
-  content    String   @db.Text
-  tokenCount Int      @default(0)
+  content    String        @db.Text
+  tokenCount Int           @default(0)
   // BM25 + hybrid search: FTS via Postgres tsvector (generated at query time), rerank via LLM
-  createdAt  DateTime @default(now())
+  createdAt  DateTime      @default(now())
 
+  @@unique([documentId, chunkIndex])
   @@index([documentId])
   @@index([ownerId])
-  @@unique([documentId, chunkIndex])
 }
 
 model CopilotSession {
-  id         String   @id @default(cuid())
-  ownerId    String
-  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  matterId   String?
-  matter     Matter?  @relation(fields: [matterId], references: [id])
-  jurisdiction Jurisdiction @default(GLOBAL)
-  title      String   @default("New copilot session")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  messages   CopilotMessage[]
+  id           String           @id @default(cuid())
+  ownerId      String
+  owner        User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matterId     String?
+  matter       Matter?          @relation(fields: [matterId], references: [id])
+  jurisdiction Jurisdiction     @default(GLOBAL)
+  title        String           @default("New copilot session")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  messages     CopilotMessage[]
 
   @@index([ownerId])
   @@index([matterId])
 }
 
 model CopilotMessage {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   sessionId String
   session   CopilotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  role      String   // user | assistant | system
-  content   String   @db.Text
-  citations Json?    // Citation[] snapshot
-  createdAt DateTime @default(now())
+  role      String // user | assistant | system
+  content   String         @db.Text
+  citations Json? // Citation[] snapshot
+  createdAt DateTime       @default(now())
 
   @@index([sessionId])
 }
 
 model Citation {
-  id         String   @id @default(cuid())
+  id         String        @id @default(cuid())
   documentId String
   document   LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   chunkId    String?
-  quote      String   @db.Text
+  quote      String        @db.Text
   page       Int?
   section    String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime      @default(now())
 
   @@index([documentId])
 }
 
 model Draft {
-  id          String      @id @default(cuid())
-  ownerId     String
-  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  matterId    String?
-  matter      Matter?     @relation(fields: [matterId], references: [id])
-  title       String
-  content     String      @db.Text
+  id           String       @id @default(cuid())
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  matterId     String?
+  matter       Matter?      @relation(fields: [matterId], references: [id])
+  title        String
+  content      String       @db.Text
   jurisdiction Jurisdiction @default(GLOBAL)
-  status      DraftStatus @default(DRAFT)
-  citations   Json?       // Citation refs used
-  fileUrl     String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  status       DraftStatus  @default(DRAFT)
+  citations    Json? // Citation refs used
+  fileUrl      String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([ownerId])
   @@index([matterId])

@@ -114,8 +114,23 @@ export async function POST(req: NextRequest) {
     if (form.ownerId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    if (form.paymentRef) {
+      return NextResponse.json({ error: "Form already paid", alreadyPaid: true }, { status: 409 });
+    }
+    if (form.status === "COMPLETED") {
+      return NextResponse.json({ error: "Form already completed" }, { status: 409 });
+    }
+    // Ensure wallet has balance for form price (server-side, atomic)
+    const freshWallet = await prisma.wallet.findUnique({ where: { userId: session.user.id } });
+    if (!freshWallet || freshWallet.balance < form.price) {
+      return NextResponse.json({ error: `Insufficient wallet balance. Need ₹${form.price}, have ₹${freshWallet?.balance ?? 0}` }, { status: 402 });
+    }
+    // Prevent duplicate transaction
+    const existingTx = await prisma.transaction.findFirst({ where: { userId: session.user.id, type: "FORM_PAYMENT", reference: form.id, status: "SUCCESS" } });
+    if (existingTx) return NextResponse.json({ error: "Already charged for this form" }, { status: 409 });
 
     await prisma.$transaction(async (tx) => {
+      await tx.wallet.update({ where: { userId: session.user.id }, data: { balance: { decrement: form.price } } });
       await tx.form.update({
         where: { id: form.id },
         data: { status: "COMPLETED", paymentRef: paymentId },
@@ -125,8 +140,9 @@ export async function POST(req: NextRequest) {
           walletId: wallet.id,
           userId: session.user.id,
           type: "FORM_PAYMENT",
+          status: "SUCCESS",
           amount: -form.price,
-          description: `AI form filling: ${form.title}`,
+          description: `AI Form Fill / FormPilot: ${form.title}`,
           reference: form.id,
         },
       });

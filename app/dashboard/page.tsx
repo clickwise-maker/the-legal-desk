@@ -3,9 +3,12 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime, formatINR, initials } from "@/lib/constants";
+import { formatDateTime, formatDate, formatINR, initials } from "@/lib/constants";
 import { StatusBadge, Badge, Card } from "@/components/ui";
 import { WalletCard } from "@/components/WalletCard";
+import { SubscriptionCard } from "@/components/SubscriptionCard";
+import { getOrCreateSubscription } from "@/lib/billing/subscription";
+import { detectPricingRegion } from "@/lib/billing/pricing";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -14,7 +17,7 @@ export default async function DashboardPage() {
   const userId = session.user.id;
   const role = session.user.role;
 
-  const [bookings, forms, wallet, lawyerProfile, upcoming, profileItems, profileUser] = await Promise.all([
+  const [bookings, forms, wallet, lawyerProfile, upcoming, profileItems, profileUser, subscription, cityStateCountry, clients] = await Promise.all([
     prisma.booking.findMany({
       where: { clientId: userId },
       include: {
@@ -50,8 +53,11 @@ export default async function DashboardPage() {
     prisma.profileItem.count({ where: { userId } }),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, phone: true, address: true, city: true, state: true, pincode: true, dateOfBirth: true, occupation: true, companyName: true },
+      select: { name: true, phone: true, address: true, city: true, state: true, country: true, pincode: true, dateOfBirth: true, occupation: true, companyName: true },
     }),
+    getOrCreateSubscription(userId),
+    prisma.user.findUnique({ where: { id: userId }, select: { city: true, state: true, country: true } }),
+    prisma.client.findMany({ where: { ownerId: userId }, select: { id: true } }),
   ]);
 
   const profileFields = [
@@ -75,6 +81,8 @@ export default async function DashboardPage() {
   const completedForms = forms.filter((f) => f.status === "COMPLETED").length;
   const cases = completedBookings + completedForms;
 
+  const pricingRegion = detectPricingRegion(cityStateCountry ?? { city: null, state: null, country: null });
+  const remaining = Math.max(0, subscription.clientLimit - subscription.clientsUsed);
   const stats = [
     { label: "Upcoming consultations", value: upcoming.length, href: "/dashboard#upcoming" },
     { label: "Cases handled", value: cases, href: "/dashboard#cases" },
@@ -107,6 +115,22 @@ export default async function DashboardPage() {
             <div className="mt-2 font-heading text-2xl font-bold text-primary-800">{s.value}</div>
           </Link>
         ))}
+      </div>
+
+      {/* Subscription / Plan card — always visible */}
+      <div className="mt-6">
+        <SubscriptionCard
+          plan={subscription.plan}
+          status={subscription.status}
+          clientLimit={subscription.clientLimit}
+          clientsUsed={subscription.clientsUsed}
+          remaining={remaining}
+          periodEnd={subscription.periodEnd.toISOString()}
+          periodStart={subscription.periodStart.toISOString()}
+          pricingRegion={pricingRegion}
+          city={cityStateCountry?.city}
+          state={cityStateCountry?.state}
+        />
       </div>
 
       {/* Lawyer banner */}
