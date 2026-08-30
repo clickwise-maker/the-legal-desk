@@ -8,7 +8,7 @@ import { StatusBadge, Badge, Card } from "@/components/ui";
 import { WalletCard } from "@/components/WalletCard";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { getOrCreateSubscription } from "@/lib/billing/subscription";
-import { detectPricingRegion } from "@/lib/billing/pricing";
+import { detectPricingRegion, getAutoFormPrice, getWalletCurrency, formatMoney } from "@/lib/billing/pricing";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -83,11 +83,13 @@ export default async function DashboardPage() {
 
   const pricingRegion = detectPricingRegion(cityStateCountry ?? { city: null, state: null, country: null });
   const remaining = Math.max(0, subscription.clientLimit - subscription.clientsUsed);
+  const walletCurrency = (wallet as unknown as { currency?: "INR" | "USD" })?.currency ?? getWalletCurrency(cityStateCountry ?? { country: null });
+  const autoFormForStats = getAutoFormPrice(cityStateCountry ?? { country: null });
   const stats = [
     { label: "Upcoming consultations", value: upcoming.length, href: "/dashboard#upcoming" },
     { label: "Cases handled", value: cases, href: "/dashboard#cases" },
     { label: "Forms", value: forms.length, href: "/forms" },
-    { label: "Wallet", value: formatINR(wallet?.balance ?? 0), href: "/dashboard#wallet" },
+    { label: "Wallet", value: formatMoney(wallet?.balance ?? 0, walletCurrency), href: "/dashboard#wallet" },
   ];
 
   return (
@@ -256,7 +258,19 @@ export default async function DashboardPage() {
           </Card>
 
           <div id="wallet">
-            <WalletCard balance={wallet?.balance ?? 0} userId={userId} />
+            {(() => {
+              const remainingForms = wallet ? Math.floor((wallet.balance ?? 0) / autoFormForStats.amount) : 0;
+              return (
+                <WalletCard
+                  balance={wallet?.balance ?? 0}
+                  currency={walletCurrency}
+                  userId={userId}
+                  autoFormPrice={autoFormForStats.amount}
+                  autoFormCurrency={autoFormForStats.currency}
+                  remainingForms={remainingForms}
+                />
+              );
+            })()}
           </div>
 
           {/* Recent forms */}
@@ -298,7 +312,8 @@ export default async function DashboardPage() {
                       <div className="text-xs text-legal-muted">{formatDateTime(t.createdAt)}</div>
                     </div>
                     <span className={t.amount >= 0 ? "font-semibold text-emerald-600" : "font-semibold text-red-600"}>
-                      {t.amount >= 0 ? "+" : ""}{formatINR(t.amount)}
+                      {t.amount >= 0 ? "+" : ""}
+                      {formatMoney(t.amount, ((t as unknown as { currency?: "INR" | "USD" }).currency ?? "INR") as "INR" | "USD")}
                     </span>
                   </li>
                 ))}

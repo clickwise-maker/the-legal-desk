@@ -58,6 +58,11 @@ enum PaymentProvider {
   WALLET
 }
 
+enum Currency {
+  INR
+  USD
+}
+
 model User {
   id                    String    @id @default(cuid())
   email                 String    @unique
@@ -355,6 +360,7 @@ model Wallet {
   userId       String        @unique
   user         User          @relation(fields: [userId], references: [id])
   balance      Float         @default(0)
+  currency     Currency      @default(INR)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   transactions Transaction[]
@@ -383,6 +389,7 @@ model Transaction {
   type        TransactionType
   status      TransactionStatus @default(SUCCESS)
   amount      Float
+  currency    Currency          @default(INR)
   description String
   reference   String?
   createdAt   DateTime          @default(now())

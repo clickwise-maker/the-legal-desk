@@ -3,10 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePayment } from "@/lib/use-payment";
-import { formatINR } from "@/lib/constants";
+import { formatMoney } from "@/lib/billing/pricing";
 import { Button, Card } from "@/components/ui";
 
-export function WalletCard({ balance, userId }: { balance: number; userId: string }) {
+export function WalletCard({
+  balance,
+  currency,
+  userId,
+  autoFormPrice,
+  autoFormCurrency,
+  remainingForms,
+}: {
+  balance: number;
+  currency: "INR" | "USD";
+  userId: string;
+  autoFormPrice: number;
+  autoFormCurrency: "INR" | "USD";
+  remainingForms: number;
+}) {
   const router = useRouter();
   const { pay, status, error } = usePayment();
   const [amount, setAmount] = useState("500");
@@ -34,15 +48,16 @@ export function WalletCard({ balance, userId }: { balance: number; userId: strin
       referenceId: data.orderId ?? String(data.pendingId),
       orderId: data.orderId,
       amountInr: data.amountInr,
-      description: `Add ${formatINR(value)} to wallet`,
+      description: `Add ${formatMoney(value, currency)} to wallet`,
     });
     router.refresh();
   }
 
   async function handleWithdraw() {
     const value = Number(amount);
-    if (!value || value < 50) {
-      setWithdrawError("Minimum withdrawal is ₹50");
+    const minWithdraw = currency === "USD" ? 10 : 50;
+    if (!value || value < minWithdraw) {
+      setWithdrawError(`Minimum withdrawal is ${formatMoney(minWithdraw, currency)}`);
       return;
     }
     setWithdrawing(true);
@@ -75,9 +90,19 @@ export function WalletCard({ balance, userId }: { balance: number; userId: strin
           </svg>
         </span>
       </div>
-      <div className="mt-4 font-heading text-4xl font-black text-primary-800">
-        {formatINR(balance)}
+      <div className="mt-4 font-heading text-4xl font-black text-primary-800">{formatMoney(balance, currency)}</div>
+      {currency === "USD" && <p className="mt-1 text-xs font-semibold text-amber-600">Live USD gateway: NOT VERIFIED (requires USD-capable provider)</p>}
+      <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3">
+        <div>
+          <div className="text-xs text-legal-muted">Auto Form Fill</div>
+          <div className="font-semibold text-primary-800">{formatMoney(autoFormPrice, autoFormCurrency)} / form</div>
+        </div>
+        <div>
+          <div className="text-xs text-legal-muted">Remaining forms</div>
+          <div className={`font-bold ${remainingForms === 0 ? "text-red-600" : "text-emerald-600"}`}>{remainingForms}</div>
+        </div>
       </div>
+      {remainingForms === 0 && <p className="mt-2 text-xs font-semibold text-red-600">Insufficient wallet balance</p>}
       <form onSubmit={handleDeposit} className="mt-5 space-y-3">
         <input
           type="number"
@@ -86,12 +111,12 @@ export function WalletCard({ balance, userId }: { balance: number; userId: strin
           className="input"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Amount in ₹"
+          placeholder={`Amount in ${currency === "USD" ? "$" : "₹"}`}
           aria-label="Amount"
         />
         <div className="grid grid-cols-2 gap-3">
           <Button variant="primary" type="submit" disabled={status === "processing"} className="w-full">
-            {status === "processing" ? "Processing…" : "Add money"}
+            {status === "processing" ? "Processing…" : currency === "USD" ? "Add $10" : "Add ₹100"}
           </Button>
           <Button variant="outline" type="button" disabled={withdrawing} onClick={handleWithdraw} className="w-full">
             {withdrawing ? "…" : "Withdraw"}
@@ -99,7 +124,9 @@ export function WalletCard({ balance, userId }: { balance: number; userId: strin
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
         {withdrawError && <p className="text-xs text-red-600">{withdrawError}</p>}
-        <p className="text-xs text-legal-muted">Withdrawals: min ₹50. Add: min ₹10.</p>
+        <p className="text-xs text-legal-muted">
+          Withdrawals: min {formatMoney(currency === "USD" ? 10 : 50, currency)}. Add: min {formatMoney(10, currency)}.
+        </p>
       </form>
     </Card>
   );

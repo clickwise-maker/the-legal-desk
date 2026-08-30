@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyPaymentSignature } from "@/lib/payments/razorpay";
+import { getAutoFormPrice, getWalletCurrency, formatMoney } from "@/lib/billing/pricing";
 
 const schema = z.object({
   type: z.enum(["BOOKING", "FORM", "DEPOSIT"]),
@@ -120,35 +121,74 @@ export async function POST(req: NextRequest) {
     if (form.status === "COMPLETED") {
       return NextResponse.json({ error: "Form already completed" }, { status: 409 });
     }
-    // Ensure wallet has balance for form price (server-side, atomic)
-    const freshWallet = await prisma.wallet.findUnique({ where: { userId: session.user.id } });
-    if (!freshWallet || freshWallet.balance < form.price) {
-      return NextResponse.json({ error: `Insufficient wallet balance. Need ₹${form.price}, have ₹${freshWallet?.balance ?? 0}` }, { status: 402 });
-    }
+    // Server determines currency and price from user's country — never trust client
+    const userProfile = await prisma.user.findUnique({ where: { id: session.user.id }, select: { country: true } });
+    const { amount: formPrice, currency } = getAutoFormPrice(userProfile ?? { country: null });
     // Prevent duplicate transaction
     const existingTx = await prisma.transaction.findFirst({ where: { userId: session.user.id, type: "FORM_PAYMENT", reference: form.id, status: "SUCCESS" } });
     if (existingTx) return NextResponse.json({ error: "Already charged for this form" }, { status: 409 });
 
-    await prisma.$transaction(async (tx) => {
-      await tx.wallet.update({ where: { userId: session.user.id }, data: { balance: { decrement: form.price } } });
-      await tx.form.update({
-        where: { id: form.id },
-        data: { status: "COMPLETED", paymentRef: paymentId },
-      });
-      await tx.transaction.create({
-        data: {
-          walletId: wallet.id,
-          userId: session.user.id,
-          type: "FORM_PAYMENT",
-          status: "SUCCESS",
-          amount: -form.price,
-          description: `AI Form Fill / FormPilot: ${form.title}`,
-          reference: form.id,
-        },
-      });
-    });
+    // Ensure wallet currency matches — auto-create/migrate if needed, then atomic deduct
+    let freshWallet = await prisma.wallet.findUnique({ where: { userId: session.user.id } });
+    if (!freshWallet) {
+      freshWallet = await prisma.wallet.create({ data: { userId: session.user.id, balance: 0, currency } });
+    }
+    // If wallet currency mismatches but balance is 0, flip to correct currency; otherwise keep and error if mismatch
+    if (freshWallet.currency !== currency) {
+      if (freshWallet.balance === 0) {
+        freshWallet = await prisma.wallet.update({ where: { userId: session.user.id }, data: { currency } });
+      } else {
+        return NextResponse.json(
+          { error: `Wallet currency mismatch: wallet is ${freshWallet.currency}, form requires ${currency}. Please contact support or use correct region.` },
+          { status: 409 }
+        );
+      }
+    }
+    if (freshWallet.balance < formPrice) {
+      return NextResponse.json(
+        { error: `Insufficient wallet balance. Need ${formatMoney(formPrice, currency)}, have ${formatMoney(freshWallet.balance, currency as "INR" | "USD")}` },
+        { status: 402 }
+      );
+    }
 
-    return NextResponse.json({ ok: true, type: "FORM" });
+    // Atomic transaction: wallet decrement + form complete + ledger
+    let newBalance = 0;
+    let remaining = 0;
+    try {
+      await prisma.$transaction(async (tx) => {
+        const upd = await tx.wallet.updateMany({
+          where: { userId: session.user.id, currency, balance: { gte: formPrice } },
+          data: { balance: { decrement: formPrice } },
+        });
+        if (upd.count === 0) throw new Error("INSUFFICIENT_OR_RACE");
+        await tx.form.update({
+          where: { id: form.id },
+          data: { status: "COMPLETED", paymentRef: paymentId },
+        });
+        await tx.transaction.create({
+          data: {
+            walletId: wallet.id,
+            userId: session.user.id,
+            type: "FORM_PAYMENT",
+            status: "SUCCESS",
+            amount: -formPrice,
+            currency,
+            description: `AI Form Fill / FormPilot: ${form.title} (${currency})`,
+            reference: form.id,
+          },
+        });
+        const w = await tx.wallet.findUnique({ where: { userId: session.user.id } });
+        newBalance = w?.balance ?? 0;
+        remaining = Math.floor(newBalance / formPrice);
+      });
+    } catch (e) {
+      if ((e as Error).message === "INSUFFICIENT_OR_RACE") {
+        return NextResponse.json({ error: "Insufficient balance or concurrent deduction" }, { status: 402 });
+      }
+      throw e;
+    }
+
+    return NextResponse.json({ ok: true, type: "FORM", currency, amount: formPrice, newBalance, remainingForms: remaining });
   }
 
   // DEPOSIT — add funds to the user's wallet

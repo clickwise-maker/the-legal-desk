@@ -2,8 +2,8 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatINR, PLATFORM_COMMISSION_PERCENT, FORM_FILL_PRICE } from "@/lib/constants";
-import { getPlanPrice } from "@/lib/billing/pricing";
+import { formatINR, PLATFORM_COMMISSION_PERCENT } from "@/lib/constants";
+import { getPlanPrice, getAutoFormPrice, formatMoney } from "@/lib/billing/pricing";
 import { PricingUpgradeButton } from "@/components/PricingUpgradeButton";
 
 export default async function PricingPage() {
@@ -15,6 +15,9 @@ export default async function PricingPage() {
   const freePrice = getPlanPrice({ user: guestUser, plan: "FREE", period: "MONTHLY" });
   const proMonthly = getPlanPrice({ user: guestUser, plan: "PRO", period: "MONTHLY" });
   const proYearly = getPlanPrice({ user: guestUser, plan: "PRO", period: "YEARLY" });
+  const autoFormIndia = getAutoFormPrice({ country: "India" });
+  const autoFormIntl = getAutoFormPrice({ country: "United States" });
+  const autoFormForUser = getAutoFormPrice(guestUser);
 
   return (
     <div className="container-legal py-16">
@@ -83,10 +86,12 @@ export default async function PricingPage() {
 
         {/* FORM PILOT */}
         <div className="card p-8">
-          <h2 className="font-heading text-xl font-bold text-primary-800">FormPilot</h2>
+          <h2 className="font-heading text-xl font-bold text-primary-800">Auto Form Fill</h2>
           <div className="mt-3">
-            <span className="font-heading text-4xl font-black text-primary-800">{formatINR(FORM_FILL_PRICE)}</span>
-            <span className="text-sm text-legal-muted"> per filled form</span>
+            <span className="font-heading text-3xl font-black text-primary-800">{formatMoney(autoFormIndia.amount, autoFormIndia.currency)}</span>
+            <span className="text-sm text-legal-muted"> / {autoFormIndia.currency} (India)</span>
+            <div className="text-sm font-semibold text-primary-700">{formatMoney(autoFormIntl.amount, autoFormIntl.currency)} / {autoFormIntl.currency} (International)</div>
+            <div className="mt-1 text-xs text-legal-muted">Your price: {formatMoney(autoFormForUser.amount, autoFormForUser.currency)} / form</div>
           </div>
           <ul className="mt-6 space-y-3">
             {["OCR + AI field detection", "Auto-fill from profile", "Editable review", "Download filled PDF"].map((f) => (

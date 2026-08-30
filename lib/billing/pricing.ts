@@ -1,12 +1,19 @@
 // Centralized pricing — single source of truth, server-side only.
-// Priority: CITY → STATE → INDIA → INTERNATIONAL → default
-// Never trust client-provided price.
+// Priority for subscriptions: CITY → STATE → INDIA → INTERNATIONAL → default
+// For Auto Form Fill: INDIA → INTERNATIONAL (city/state not needed)
+// Never trust client-provided price or browser location — use DB user's country.
 
 import type { User } from "@prisma/client";
 
 export type Plan = "FREE" | "PRO";
 export type BillingPeriod = "MONTHLY" | "YEARLY";
 export type PricingRegion = "CITY" | "STATE" | "INDIA" | "INTERNATIONAL" | "DEFAULT";
+export type Currency = "INR" | "USD";
+
+export const AUTO_FORM_PRICING = {
+  INDIA: { amount: 5, currency: "INR" as Currency },
+  INTERNATIONAL: { amount: 1, currency: "USD" as Currency },
+} as const;
 
 export const PLANS = {
   FREE: { priceMonthly: 0, priceYearly: 0, clientLimit: 10, label: "Free" },
@@ -26,6 +33,25 @@ const STATE_OVERRIDES: Record<string, Partial<Record<Plan, number>>> = {
 const COUNTRY_OVERRIDES: Record<string, Partial<Record<Plan, number>>> = {
   // "United States": { PRO: 29 }, // could be USD later via currency layer
 };
+
+export function isIndiaUser(user: Pick<User, "country">): boolean {
+  const c = (user.country ?? "").trim().toLowerCase();
+  return !c || c === "india" || c === "in" || c === "ind";
+}
+
+export function getAutoFormPrice(user: Pick<User, "country">): { amount: number; currency: Currency; region: "INDIA" | "INTERNATIONAL" } {
+  if (isIndiaUser(user)) return { amount: AUTO_FORM_PRICING.INDIA.amount, currency: AUTO_FORM_PRICING.INDIA.currency, region: "INDIA" };
+  return { amount: AUTO_FORM_PRICING.INTERNATIONAL.amount, currency: AUTO_FORM_PRICING.INTERNATIONAL.currency, region: "INTERNATIONAL" };
+}
+
+export function getWalletCurrency(user: Pick<User, "country">): Currency {
+  return isIndiaUser(user) ? "INR" : "USD";
+}
+
+export function formatMoney(amount: number, currency: Currency): string {
+  if (currency === "USD") return `$${amount.toLocaleString("en-US", { minimumFractionDigits: amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+  return `₹${amount.toLocaleString("en-IN", { minimumFractionDigits: amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
 
 export function detectPricingRegion(user: Pick<User, "city" | "state" | "country">): PricingRegion {
   const city = user.city?.trim();
