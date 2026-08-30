@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Copilot } from "@/components/Copilot";
+import { LegalDisclaimerModal } from "@/components/LegalDisclaimerModal";
 
 const merriweather = localFont({
   src: "../fonts/merriweather-latin.woff2",
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
         <Footer />
         <Copilot />
+        <LegalDisclaimerModal />
       </body>
     </html>
   );

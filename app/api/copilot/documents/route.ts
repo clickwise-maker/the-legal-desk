@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage/blob";
 import { ingestDocument } from "@/lib/copilot/ingest";
 import { parseJurisdiction } from "@/lib/copilot/jurisdiction";
+import { validateUpload } from "@/lib/security/fileValidation";
 
 const ACCEPTED = ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/jpg"];
 
@@ -38,15 +39,19 @@ export async function POST(req: NextRequest) {
   if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: "Max 20 MB" }, { status: 400 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const fileUrl = await uploadFile({ buffer, fileName: file.name, contentType: file.type || "application/pdf", prefix: "copilot" });
+  const mime = file.type || "application/pdf";
+  const validated = validateUpload({ buffer, mime, fileName: file.name, maxBytes: 20 * 1024 * 1024 });
+  if (!validated.ok) return NextResponse.json({ error: validated.error }, { status: 400 });
+
+  const fileUrl = await uploadFile({ buffer, fileName: validated.sanitizedName, contentType: mime, prefix: "copilot" });
 
   const { documentId, chunks } = await ingestDocument({
     ownerId: session.user.id,
     matterId,
     title,
-    fileName: file.name,
+    fileName: validated.sanitizedName,
     fileUrl,
-    fileType: file.type || "application/pdf",
+    fileType: mime,
     buffer,
     jurisdiction,
   });

@@ -68,7 +68,7 @@ model User {
   email                 String    @unique
   name                  String
   passwordHash          String
-  phone                 String?
+  phone                 String?   @unique
   avatarUrl             String?
   role                  UserRole  @default(CLIENT)
   // Scheduling availability reused from the Cal.com-style core
@@ -121,6 +121,7 @@ model User {
   drafts            Draft[]
   subscription      Subscription?
   clients           Client[]
+  legalConsents     LegalConsent[]
 }
 
 // Repeatable education records (multiple qualifications).
@@ -450,6 +451,19 @@ model Client {
 
   @@index([ownerId])
   @@index([matterId])
+}
+
+model LegalConsent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version   String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, version])
+  @@index([userId])
 }
 
 // ── Worldwide Copilot — Matters / Documents / RAG ──

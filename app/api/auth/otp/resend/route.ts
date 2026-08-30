@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
   const email = parsed.data.email.toLowerCase().trim();
   const existing = await prisma.user.findUnique({ where: { email } });
   if (!existing) {
-    return NextResponse.json({ error: "No account found with this email. Please sign up first." }, { status: 404 });
+    return NextResponse.json(
+      { ok: true, email, resendAfterMs: 0, note: "If an account exists for this email, an OTP has been sent." },
+      { status: 200 }
+    );
   }
 
   const { code, resendAfterMs } = await createOtp(email);
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const exposeCode = process.env.OTP_EXPOSE_CODE === "true";
+  const exposeCode = process.env.OTP_EXPOSE_CODE === "true" && process.env.NODE_ENV !== "production";
   return NextResponse.json({
     ok: true,
     email,

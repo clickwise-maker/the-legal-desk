@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage/blob";
+import { validateUpload } from "@/lib/security/fileValidation";
 
 const ACCEPTED = ["image/png", "image/jpeg", "image/webp"];
 
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const validated = validateUpload({ buffer, mime: file.type, fileName: file.name, maxBytes: 5 * 1024 * 1024 });
+  if (!validated.ok) return NextResponse.json({ error: validated.error }, { status: 400 });
+
   const url = await uploadFile({
     buffer,
     fileName: `profile-${session.user.id}.${file.type.split("/")[1]}`,

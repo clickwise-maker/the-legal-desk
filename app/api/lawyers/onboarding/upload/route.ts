@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { uploadFile } from "@/lib/storage/blob";
+import { validateUpload } from "@/lib/security/fileValidation";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +47,12 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const validated = validateUpload({ buffer, mime: file.type, fileName: file.name, maxBytes: 8 * 1024 * 1024 });
+  if (!validated.ok) return NextResponse.json({ error: validated.error }, { status: 400 });
+
   const url = await uploadFile({
     buffer,
-    fileName: file.name,
+    fileName: validated.sanitizedName,
     contentType: file.type,
     prefix: `onboarding/${session.user.id}/${kind.data}`,
   });

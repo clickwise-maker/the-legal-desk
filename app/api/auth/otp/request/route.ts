@@ -17,17 +17,17 @@ export async function POST(req: NextRequest) {
   const email = parsed.data.email.toLowerCase().trim();
   const existing = await prisma.user.findUnique({ where: { email } });
   if (!existing) {
-    // Don't reveal whether an account exists — but still keep the same
-    // response shape so the flow works for demo accounts.
-    return NextResponse.json({ error: "No account found with this email. Please sign up first." }, { status: 404 });
+    // Prevent enumeration — return generic success without creating OTP or exposing existence.
+    return NextResponse.json(
+      { ok: true, email, expiresInSec: 600, resendAfterMs: 0, note: "If an account exists for this email, an OTP has been sent." },
+      { status: 200 }
+    );
   }
 
   const { code, resendAfterMs } = await createOtp(email);
 
-  // Demo/development delivery: expose the code in the response when the
-  // OTP_EXPOSE_CODE flag is set, so the flow is verifiable without a real
-  // email provider. In production this is where the email/SMS send happens.
-  const exposeCode = process.env.OTP_EXPOSE_CODE === "true";
+  // Demo/development delivery: expose code only in non-production when flag is set.
+  const exposeCode = process.env.OTP_EXPOSE_CODE === "true" && process.env.NODE_ENV !== "production";
   const devCode = exposeCode ? code : undefined;
 
   return NextResponse.json({

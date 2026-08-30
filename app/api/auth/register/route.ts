@@ -29,25 +29,42 @@ export async function POST(req: NextRequest) {
   }
 
   const { name, email, password, phone, role } = parsed.data;
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedPhone = phone ? phone.trim().replace(/\s+/g, "") : null;
 
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
   }
+  if (normalizedPhone) {
+    const phoneExists = await prisma.user.findFirst({ where: { phone: normalizedPhone } });
+    if (phoneExists) return NextResponse.json({ error: "An account with this phone number already exists" }, { status: 409 });
+  }
 
   const passwordHash = await hash(password, 10);
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email: normalizedEmail,
-      passwordHash,
-      phone,
-      role: role as UserRole,
-      wallet: { create: { balance: 0 } },
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email: normalizedEmail,
+        passwordHash,
+        phone: normalizedPhone,
+        role: role as UserRole,
+        wallet: { create: { balance: 0 } },
+      },
+    });
+  } catch (e) {
+    const err = e as { code?: string; meta?: { target?: string[] } };
+    if (err.code === "P2002" && err.meta?.target?.includes("email")) {
+      return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+    }
+    if (err.code === "P2002" && err.meta?.target?.includes("phone")) {
+      return NextResponse.json({ error: "An account with this phone number already exists" }, { status: 409 });
+    }
+    throw e;
+  }
 
   if (role === "LAWYER") {
     await prisma.lawyerProfile.create({

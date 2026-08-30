@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage/blob";
+import { validateUpload } from "@/lib/security/fileValidation";
 
 const ACCEPTED_TYPES = [
   "application/pdf",
@@ -50,9 +51,12 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const validated = validateUpload({ buffer, mime: file.type, fileName: file.name, maxBytes: 15 * 1024 * 1024 });
+  if (!validated.ok) return NextResponse.json({ error: validated.error }, { status: 400 });
+
   const fileUrl = await uploadFile({
     buffer,
-    fileName: file.name,
+    fileName: validated.sanitizedName,
     contentType: file.type,
     prefix: "forms",
   });
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
     data: {
       ownerId: session.user.id,
       title,
-      fileName: file.name,
+      fileName: validated.sanitizedName,
       fileUrl,
       fileType: file.type,
       status: "UPLOADED",
