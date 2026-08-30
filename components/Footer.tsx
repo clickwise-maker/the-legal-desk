@@ -26,9 +26,11 @@ export function Footer() {
             <div>
               <h4 className="font-heading text-sm font-bold text-primary-800">Legal</h4>
               <ul className="mt-3 space-y-2 text-sm text-legal-muted">
-                <li><a className="hover:text-gold-500" href="#">Terms of Service</a></li>
-                <li><a className="hover:text-gold-500" href="#">Privacy Policy</a></li>
-                <li><a className="hover:text-gold-500" href="#">Refund Policy</a></li>
+                <li><Link className="hover:text-gold-500" href="/terms-of-service">Terms of Service</Link></li>
+                <li><Link className="hover:text-gold-500" href="/privacy-policy">Privacy Policy</Link></li>
+                <li><Link className="hover:text-gold-500" href="/refund-policy">Refund Policy</Link></li>
+                <li><Link className="hover:text-gold-500" href="/cookie-policy">Cookie Policy</Link></li>
+                <li><Link className="hover:text-gold-500" href="/disclaimer">Disclaimer</Link></li>
               </ul>
             </div>
             <div>
