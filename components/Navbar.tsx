@@ -11,6 +11,7 @@ export async function Navbar() {
     { href: "/copilot", label: "Copilot" },
     { href: "/lawyers", label: "Lawyers" },
     { href: "/forms", label: "Forms" },
+    { href: "/scheduleai", label: "ScheduleAI" },
     { href: "/pricing", label: "Pricing" },
   ];
 

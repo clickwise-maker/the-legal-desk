@@ -332,6 +332,19 @@ export default async function DashboardPage() {
             </div>
           </Card>
 
+          <Card className="p-6 bg-gradient-to-br from-primary-50 to-gold-50">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading text-lg font-bold text-primary-800">ScheduleAI</h3>
+              <span className="badge bg-gold-100 text-gold-700">New</span>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-legal-muted">
+              Event types, availability, and bookings — now native inside LegalFlow. Same login, same design.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/scheduleai" className="btn-gold flex-1 text-center text-sm">Open ScheduleAI</Link>
+            </div>
+          </Card>
+
           <div id="wallet">
             {(() => {
               const remainingForms = wallet ? Math.floor((wallet.balance ?? 0) / autoFormForStats.amount) : 0;
