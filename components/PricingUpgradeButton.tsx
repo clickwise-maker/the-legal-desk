@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function PricingUpgradeButton({ plan, period, label }: { plan: "PRO"; period: "MONTHLY" | "YEARLY"; label: string }) {
+import type { Plan } from "@/lib/billing/pricing";
+
+export function PricingUpgradeButton({ plan, period, label }: { plan: Plan; period: "MONTHLY" | "YEARLY"; label: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   async function handle() {

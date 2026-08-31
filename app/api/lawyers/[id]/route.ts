@@ -5,7 +5,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const lawyer = await prisma.lawyerProfile.findUnique({
     where: { id: params.id },
     include: {
-      user: { select: { id: true, name: true, email: true, avatarUrl: true, phone: true } },
+      user: { select: { id: true, name: true, avatarUrl: true } },
       specializations: { select: { name: true } },
       LawyerSpecialization: { select: { specialization: { select: { name: true } } } },
       ratings: { include: { client: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 10 },
@@ -29,8 +29,6 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({
     id: lawyer.id,
     name: lawyer.user.name,
-    email: lawyer.user.email,
-    phone: lawyer.user.phone,
     avatarUrl: lawyer.user.avatarUrl,
     bio: lawyer.bio,
     barCouncilId: lawyer.barCouncilId,
@@ -38,7 +36,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     hourlyRate: lawyer.hourlyRate,
     commissionPercent: lawyer.commissionRate,
     city: lawyer.city,
+    state: (lawyer as unknown as { state?: string }).state ?? null,
+    jurisdiction: (lawyer as unknown as { jurisdiction?: string }).jurisdiction ?? null,
+    languages: (lawyer as unknown as { languages?: unknown }).languages ?? null,
+    consultationModes: (lawyer as unknown as { consultationModes?: unknown }).consultationModes ?? null,
+    courtsOfPractice: lawyer.courtsOfPractice,
+    enrolmentYear: lawyer.enrolmentYear,
     isVerified: lawyer.isVerified,
+    verifiedAt: lawyer.verifiedAt ?? lawyer.credentialsVerifiedAt,
     specializations: Array.from(new Set(specs)),
     rating: Math.round(avgRating * 10) / 10,
     ratingCount: lawyer.ratings.length,

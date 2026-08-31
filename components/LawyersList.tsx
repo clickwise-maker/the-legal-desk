@@ -13,6 +13,9 @@ type Lawyer = {
   avatarUrl: string | null;
   bio: string;
   city: string | null;
+  state?: string | null;
+  jurisdiction?: string | null;
+  barCouncilId: string;
   experienceYears: number;
   hourlyRate: number;
   isVerified: boolean;
@@ -108,8 +111,9 @@ export function LawyersList({ initialQuery }: { initialQuery?: string }) {
                 {l.name}
               </h2>
               <p className="mt-1 text-sm text-legal-muted">
-                {l.experienceYears} yrs exp · {l.city ?? "—"} · {l.bookingCount} consultations
+                {l.experienceYears} yrs exp · {l.city ?? "—"}{l.state ? `, ${l.state}` : ""} · {l.bookingCount} consultations
               </p>
+              <p className="mt-1 text-xs text-legal-muted">Bar ID: {l.barCouncilId} {l.jurisdiction ? `· ${l.jurisdiction}` : ""}</p>
               <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-legal-muted">{l.bio}</p>
 
               <div className="mt-4 flex flex-wrap gap-2">

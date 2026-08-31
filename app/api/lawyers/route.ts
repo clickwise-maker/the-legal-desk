@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const lawyers = await prisma.lawyerProfile.findMany({
     where,
     include: {
-      user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+      user: { select: { id: true, name: true, avatarUrl: true } },
       specializations: { select: { name: true } },
       LawyerSpecialization: {
         select: { specialization: { select: { name: true } } },
@@ -58,7 +58,6 @@ export async function GET(req: NextRequest) {
       id: l.id,
       userId: l.userId,
       name: l.user.name,
-      email: l.user.email,
       avatarUrl: l.user.avatarUrl,
       bio: l.bio,
       barCouncilId: l.barCouncilId,
@@ -66,6 +65,8 @@ export async function GET(req: NextRequest) {
       hourlyRate: l.hourlyRate,
       commissionPercent: PLATFORM_COMMISSION_PERCENT,
       city: l.city,
+      state: (l as unknown as { state?: string }).state ?? null,
+      jurisdiction: (l as unknown as { jurisdiction?: string }).jurisdiction ?? null,
       isVerified: l.isVerified,
       specializations: uniqueSpecs,
       rating: Math.round(avgRating * 10) / 10,

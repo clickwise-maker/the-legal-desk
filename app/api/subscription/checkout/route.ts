@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const plan = (String(body?.plan ?? "PRO").toUpperCase() as Plan);
-  if (!["PRO"].includes(plan)) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+  const validPlans: Plan[] = ["FREE", "PRO", "SCHEDULE_EARLY", "SCHEDULE_VIP", "VIP_ALL_IN_ONE", "LAWYER_STATE_PRO", "LAWYER_INTL_UNLIMITED"];
+  if (!validPlans.includes(plan)) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   const period = (String(body?.period ?? "MONTHLY").toUpperCase() as BillingPeriod);
   if (!["MONTHLY", "YEARLY"].includes(period)) return NextResponse.json({ error: "Invalid period" }, { status: 400 });
 

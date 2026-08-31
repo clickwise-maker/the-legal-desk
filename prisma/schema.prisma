@@ -238,6 +238,12 @@ model LawyerProfile {
   isVerified              Boolean                @default(false)
   isAvailable             Boolean                @default(true)
   city                    String?
+  state                   String?
+  jurisdiction            String? // e.g., "Maharashtra" or "Delhi High Court"
+  languages               Json? // ["English", "Hindi"]
+  consultationModes       Json? // ["online", "offline", "phone"]
+  verifiedBy              String?
+  verifiedAt              DateTime?
   // Lawyer onboarding / registration fields
   practiceEmail           String?
   chamberAddress          String?

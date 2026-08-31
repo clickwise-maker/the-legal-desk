@@ -12,15 +12,20 @@ import type { Session } from "next-auth";
 type Lawyer = {
   id: string;
   name: string;
-  email: string;
-  phone: string | null;
   bio: string;
   barCouncilId: string;
   experienceYears: number;
   hourlyRate: number;
   commissionPercent: number;
   city: string | null;
+  state?: string | null;
+  jurisdiction?: string | null;
+  languages?: string[] | null;
+  consultationModes?: string[] | null;
+  courtsOfPractice?: string[] | null;
+  enrolmentYear?: number | null;
   isVerified: boolean;
+  verifiedAt?: string | null;
   specializations: string[];
   rating: number;
   ratingCount: number;
@@ -202,6 +207,46 @@ export function LawyerDetail({ session }: { session: Session | null }) {
               <div className="flex justify-between">
                 <dt className="text-legal-muted">Consultations</dt>
                 <dd className="font-semibold text-primary-800">{lawyer.bookingCount}</dd>
+              </div>
+              {lawyer.state && (
+                <div className="flex justify-between">
+                  <dt className="text-legal-muted">State</dt>
+                  <dd className="font-semibold text-primary-800">{lawyer.state}</dd>
+                </div>
+              )}
+              {lawyer.jurisdiction && (
+                <div className="flex justify-between">
+                  <dt className="text-legal-muted">Jurisdiction</dt>
+                  <dd className="font-semibold text-primary-800">{lawyer.jurisdiction}</dd>
+                </div>
+              )}
+              {lawyer.enrolmentYear && (
+                <div className="flex justify-between">
+                  <dt className="text-legal-muted">Enrolled</dt>
+                  <dd className="font-semibold text-primary-800">{lawyer.enrolmentYear}</dd>
+                </div>
+              )}
+              {lawyer.languages && (lawyer.languages as string[]).length > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-legal-muted">Languages</dt>
+                  <dd className="font-semibold text-primary-800">{(lawyer.languages as string[]).join(", ")}</dd>
+                </div>
+              )}
+              {lawyer.consultationModes && (lawyer.consultationModes as string[]).length > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-legal-muted">Modes</dt>
+                  <dd className="font-semibold text-primary-800">{(lawyer.consultationModes as string[]).join(", ")}</dd>
+                </div>
+              )}
+              {lawyer.courtsOfPractice && (lawyer.courtsOfPractice as string[]).length > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-legal-muted">Courts</dt>
+                  <dd className="font-semibold text-primary-800">{(lawyer.courtsOfPractice as string[]).join(", ")}</dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-legal-muted">Registration</dt>
+                <dd className="font-semibold text-primary-800">{lawyer.barCouncilId}</dd>
               </div>
             </dl>
 

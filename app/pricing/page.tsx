@@ -18,6 +18,11 @@ export default async function PricingPage() {
   const autoFormIndia = getAutoFormPrice({ country: "India" });
   const autoFormIntl = getAutoFormPrice({ country: "United States" });
   const autoFormForUser = getAutoFormPrice(guestUser);
+  const scheduleEarly = getPlanPrice({ user: guestUser, plan: "SCHEDULE_EARLY", period: "MONTHLY" });
+  const scheduleVip = getPlanPrice({ user: guestUser, plan: "SCHEDULE_VIP", period: "MONTHLY" });
+  const vipAll = getPlanPrice({ user: guestUser, plan: "VIP_ALL_IN_ONE", period: "MONTHLY" });
+  const lawyerState = getPlanPrice({ user: guestUser, plan: "LAWYER_STATE_PRO", period: "MONTHLY" });
+  const lawyerIntl = getPlanPrice({ user: guestUser, plan: "LAWYER_INTL_UNLIMITED", period: "MONTHLY" });
 
   return (
     <div className="container-legal py-16">
@@ -52,7 +57,7 @@ export default async function PricingPage() {
         <div className="card p-8 border-gold-300 ring-2 ring-gold-200 shadow-gold">
           <h2 className="font-heading text-xl font-bold text-primary-800">Pro</h2>
           <div className="mt-3">
-            <span className="font-heading text-4xl font-black text-primary-800">{formatINR(proMonthly.amountInr)}</span>
+            <span className="font-heading text-4xl font-black text-primary-800">{formatMoney(proMonthly.amount, proMonthly.currency as "INR" | "USD")}</span>
             <span className="text-sm text-legal-muted"> /month</span>
           </div>
           <ul className="mt-6 space-y-3">
@@ -70,7 +75,7 @@ export default async function PricingPage() {
         <div className="card p-8">
           <h2 className="font-heading text-xl font-bold text-primary-800">Pro Yearly</h2>
           <div className="mt-3">
-            <span className="font-heading text-4xl font-black text-primary-800">{formatINR(proYearly.amountInr)}</span>
+            <span className="font-heading text-4xl font-black text-primary-800">{formatMoney(proYearly.amount, proYearly.currency as "INR" | "USD")}</span>
             <span className="text-sm text-legal-muted"> /year</span>
           </div>
           <ul className="mt-6 space-y-3">
@@ -102,6 +107,48 @@ export default async function PricingPage() {
             ))}
           </ul>
           <Link href="/forms" className="btn-primary mt-8 w-full">Fill a form</Link>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 md:grid-cols-4">
+        {/* SCHEDULEAI EARLY */}
+        <div className="card p-8">
+          <h2 className="font-heading text-xl font-bold text-primary-800">ScheduleAI Early</h2>
+          <div className="mt-3">
+            <span className="font-heading text-3xl font-black text-primary-800">{formatMoney(scheduleEarly.amount, scheduleEarly.currency as "INR" | "USD")}</span>
+            <span className="text-sm text-legal-muted"> /month</span>
+            <div className="text-xs text-legal-muted">International: {formatMoney(5, "USD")}/mo</div>
+          </div>
+          <PricingUpgradeButton plan="SCHEDULE_EARLY" period="MONTHLY" label="Get Early" />
+        </div>
+        <div className="card p-8">
+          <h2 className="font-heading text-xl font-bold text-primary-800">ScheduleAI VIP</h2>
+          <div className="mt-3">
+            <span className="font-heading text-3xl font-black text-primary-800">{formatMoney(scheduleVip.amount, scheduleVip.currency as "INR" | "USD")}</span>
+            <span className="text-sm text-legal-muted"> /month</span>
+            <div className="text-xs text-legal-muted">International: {formatMoney(19, "USD")}/mo</div>
+          </div>
+          <PricingUpgradeButton plan="SCHEDULE_VIP" period="MONTHLY" label="Get VIP" />
+        </div>
+        <div className="card p-8 border-gold-300 ring-2 ring-gold-200">
+          <h2 className="font-heading text-xl font-bold text-primary-800">All-in-One VIP</h2>
+          <div className="mt-3">
+            <span className="font-heading text-3xl font-black text-primary-800">{formatMoney(vipAll.amount, vipAll.currency as "INR" | "USD")}</span>
+            <span className="text-sm text-legal-muted"> /month</span>
+            <div className="text-xs text-legal-muted">FormPilot + LegalFlow + ScheduleAI</div>
+          </div>
+          <PricingUpgradeButton plan="VIP_ALL_IN_ONE" period="MONTHLY" label="Get VIP" />
+        </div>
+        <div className="card p-8">
+          <h2 className="font-heading text-xl font-bold text-primary-800">Lawyer Leads</h2>
+          <div className="mt-3">
+            <div className="text-sm font-semibold">{formatMoney(lawyerState.amount, lawyerState.currency as "INR" | "USD")} / State Pro (100/mo)</div>
+            <div className="text-sm font-semibold">{formatMoney(lawyerIntl.amount, lawyerIntl.currency as "INR" | "USD")} / Intl Unlimited</div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <PricingUpgradeButton plan="LAWYER_STATE_PRO" period="MONTHLY" label="State Pro" />
+            <PricingUpgradeButton plan="LAWYER_INTL_UNLIMITED" period="MONTHLY" label="Intl Unlimited" />
+          </div>
         </div>
       </div>
 
